@@ -250,7 +250,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .rq{text-align:center;font-weight:700}
 .gshop{color:var(--gold);font-weight:700}
 </style>`);
-/* Gelt Shop sits at the very bottom of the Home cards (after every other script has added its card) */
-setTimeout(()=>{ const c=[...document.querySelectorAll("#home .blitzcard")].filter(x=>x.id!=="openShop"); const s=$("openShop"); if(s&&c.length) c[c.length-1].after(s) },0);
+/* Gelt Shop sits right under Bar Mitzvah Training (after every other script has added its card) */
+setTimeout(()=>{ const s=$("openShop"), bm=$("openBM"); if(!s) return; if(bm){ bm.after(s); return } const c=[...document.querySelectorAll("#home .blitzcard")].filter(x=>x.id!=="openShop"); if(c.length) c[c.length-1].after(s) },0);
 window.openShop=openShop; paintShopHome(); if(location.hash==="#shop") openShop();
 })();
