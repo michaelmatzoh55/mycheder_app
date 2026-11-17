@@ -415,6 +415,50 @@ function nextRegular(i){ let j=i; while(j<PCAL.length&&!PCAL[j].ps) j++; return 
 function thisWeek(){ const i=shabbosFrom(new Date()); return i<0?null:i }
 let PA=null;
 
+/* ----- The yad: follows each word when the pasuk or Rashi is read aloud ----- */
+const YADSVG=(()=>{ const a=document.querySelector("#yad .yadart"); return a?a.outerHTML:"" })();
+let paYadN=0, PY=null;
+function paYad(box){ let y=box.querySelector(".payad"); if(y) return y; const n=++paYadN;
+  box.insertAdjacentHTML("beforeend",`<div class="yad payad" hidden aria-hidden="true">${YADSVG.replace(/\b(ySil|yGld|yGem)\b/g,"$1p"+n)}</div>`); return box.querySelector(".payad") }
+function paMoveYad(st,w){ const y=st.yad, r=w.getBoundingClientRect(), c=st.box.getBoundingClientRect();
+  const x=r.left-c.left+r.width/2, top=r.top-c.top+6, T=(px,py)=>`translate(${px}px,${py}px)`;
+  if(r.top<130||r.bottom>innerHeight-20) w.scrollIntoView({block:"center",behavior:"smooth"});
+  const fresh=y.hidden||!st.at; y.hidden=false;
+  const from=fresh?{x:x+80,y:top-110}:st.at, hop=!fresh&&Math.abs(st.at.y-top)>20;
+  const mid={x:(from.x+x)/2,y:Math.min(from.y,top)-(fresh?20:hop?46:16)}, dur=fresh?560:hop?460:300;
+  try{ y.getAnimations().forEach(a=>a.cancel()) }catch(e){}
+  y.style.transform=T(x,top);
+  if(y.animate) y.animate([{transform:T(from.x,from.y),opacity:fresh?0:1},{transform:T(mid.x,mid.y),opacity:1,offset:.55},{transform:T(x,top),opacity:1}],{duration:dur,easing:"cubic-bezier(.3,.7,.35,1)"});
+  st.at={x,y:top};
+  clearTimeout(y._tap); y._tap=setTimeout(()=>{ if(y.hidden||st.stop) return; const a=y.querySelector(".yadart"); if(!a) return; a.classList.remove("tap"); void a.getBoundingClientRect(); a.classList.add("tap");
+    if(typeof yadSpark==="function") yadSpark(st.box,x,top) },Math.round(dur*.8)) }
+function paStop(){ const st=PY; if(!st) return; PY=null; st.stop=true; st.timers.forEach(clearTimeout); try{ speechSynthesis.cancel() }catch(e){}
+  st.box.querySelectorAll(".wc.on").forEach(x=>x.classList.remove("on")); st.yad.hidden=true; st.btn.textContent=st.label }
+function paFollow(box,he,btn,label){
+  if(PY&&PY.box===box){ sfx.tick(); paStop(); return }
+  paStop(); stopPlay();
+  if(!voiceOn()){ toast("Turn on Shlomo's voice in ⚙️ to hear it"); return }
+  if(typeof voiceUnlock==="function") voiceUnlock();
+  sfx.tick();
+  const ws=[...box.querySelectorAll(".il .wc")], hw=he.split(" ");
+  const words=hw.map(w=>speakText(w)+(/,\s*$/.test(w)?",":""));
+  const starts=[]; let pos=0; words.forEach(w=>{ starts.push(pos); pos+=w.length+1 });
+  const rate=[.78,.9,1][S.pace]||.9;
+  const st={box,btn,label,yad:paYad(box),timers:[],stop:false,at:null}; PY=st; btn.textContent="■ Stop";
+  let cur=-1, heard=false, done=false;
+  const light=k=>{ if(st.stop||k<=cur||k>=ws.length) return; cur=k; box.querySelectorAll(".wc.on").forEach(x=>x.classList.remove("on")); ws[k].classList.add("on"); paMoveYad(st,ws[k]) };
+  const finish=()=>{ if(done||st.stop) return; done=true; st.timers.forEach(clearTimeout);
+    setTimeout(()=>{ if(PY===st) paStop() },650) };
+  // Backup timing if the voice doesn't report word positions: about 4 syllables a second, plus a breath at commas
+  let t=120; ws.forEach((w,k)=>{ st.timers.push(setTimeout(()=>{ if(!heard) light(k) },t)); const s=w.querySelector(".s");
+    const syl=s&&s.textContent.trim()?s.textContent.trim().split(/[-·\s]+/).length:2; t+=(syl*235+70)/rate+(/,\s*$/.test(hw[k]||"")?220:0) });
+  try{ const u=new SpeechSynthesisUtterance(words.join(" ")); u.voice=HEV; u.lang=HEV.lang; u.rate=rate;
+    u.onboundary=e=>{ if(e.name&&e.name!=="word") return; heard=true; let k=0; while(k+1<starts.length&&starts[k+1]<=e.charIndex) k++; light(k) };
+    u.onend=()=>{ light(ws.length-1); finish() }; u.onerror=()=>finish();
+    KEEP.push(u); speechSynthesis.cancel(); speechSynthesis.speak(u); light(0) }catch(e){ finish() }
+  st.timers.push(setTimeout(finish,t*1.8+4000)) }
+const _paSP=stopPlay; stopPlay=function(){ paStop(); _paSP() };
+
 /* ----- Home card ----- */
 $("openBM").insertAdjacentHTML("beforebegin",`<button class="blitzcard pacard" id="openPa" type="button"><span class="em" id="paHomeE" aria-hidden="true">📖</span>
   <span><b id="paHomeT">The Weekly Parsha</b><span id="paHomeS">This Shabbos's Torah portion: the story, key Hebrew words and a deeper meaning.</span></span><span class="bzs" id="paHomeR"></span></button>`);
@@ -442,7 +486,7 @@ function openParsha(ps,d){ stopPlay(); window._fromBM=false; if(typeof bzStopTim
   showOnly("parsha");
   if(ps) PA={ps,d:d||null,step:0}; else { const i=thisWeek(); PA=i===null?{ps:[0],d:null,step:0}:{wi:i,step:0} }
   renderParsha(); paintNav() }
-function renderParsha(){
+function renderParsha(){ paStop();
   $("paY").innerHTML=yossi();
   let ps=PA.ps, d=PA.d, hol=null; const isWeek=PA.wi!=null;
   if(isWeek){ const w=PCAL[PA.wi]; if(w.ps){ ps=w.ps; d=w.d } else { hol=w; const j=nextRegular(PA.wi); ps=j>=0?PCAL[j].ps:[0]; d=j>=0?PCAL[j].d:null } }
@@ -462,7 +506,7 @@ function renderParsha(){
       return `<section class="papsk"><div class="papskh" data-noglo><b>📖 From the Torah</b><span>${esc(BOOKS[x[0]][sef?1:0])} ${x[1]}</span></div>
       <div class="il" dir="rtl">${he.map((w,n)=>`<button class="wc" type="button" data-pw="${i}:${n}"><span class="h" lang="he">${w}</span><span class="s">${esc(so[n]||"")}</span><span class="g">${esc(kwT(gl[n]))}</span></button>`).join("")}</div>
       <p class="papsken">“${esc(kwT(x[5]))}”</p>
-      <button class="btn ghost" type="button" data-pall="${i}">🔊 Hear the pasuk</button></section>` }).join("")}
+      <button class="btn ghost" type="button" data-pall="${i}">▶ Follow the yad</button></section>` }).join("")}
     <div class="pasteps">${steps.map((s,k)=>`<div class="pastep"${k>PA.step?" hidden":""}><span class="n">${k+1}</span><span>${esc(s)}</span></div>`).join("")}</div>`;
   $("paKW").innerHTML=`${ps.filter(i=>KW[i]).map(i=>`<section class="pakw"><h3 class="pakwh">📜 Hebrew words in ${esc(pnm(i))}<small>Tap a word to hear it</small></h3>
       ${KW[i].slice(0,3).map((w,n)=>`<div class="kwc"><button class="kwhe" type="button" data-kw="${i}:${n}" aria-label="Hear ${esc(kwSay(w))}"><span class="h" lang="he">${w[0]}</span><span class="s">${esc(kwSay(w))} 🔊</span></button>
@@ -471,15 +515,15 @@ function renderParsha(){
       ${RASHI[i]?(()=>{ const x=RASHI[i], he=x[2].split(" "), so=pskSay(x), gl=x[4].split("|");
         return `<div class="parashi"><div class="papskh" data-noglo><b>📜 Rashi says</b><span>Rashi on ${esc(BOOKS[x[0]][sef?1:0])} ${x[1]}</span></div>
         <div class="il" dir="rtl">${he.map((w,n)=>`<button class="wc" type="button" data-rw="${i}:${n}"><span class="h" lang="he">${w}</span><span class="s">${esc(so[n]||"")}</span><span class="g">${esc(kwT(gl[n]))}</span></button>`).join("")}</div>
-        <button class="btn ghost" type="button" data-rall="${i}">🔊 Hear Rashi</button>
+        <button class="btn ghost" type="button" data-rall="${i}">▶ Follow the yad</button>
         <div class="rashiwhy"><b>What Rashi is teaching</b><p>${kwT(x[5])}</p></div></div>` })():""}</section>`).join("")}`;
   $("paHear").onclick=()=>speakPhrase(ps.map(i=>PARSHIOS[i][2]).join(" "));
-  $("paMain").querySelectorAll("[data-pw]").forEach(b=>b.onclick=()=>{ const [i,n]=b.dataset.pw.split(":").map(Number); sfx.tick();
+  $("paMain").querySelectorAll("[data-pw]").forEach(b=>b.onclick=()=>{ const [i,n]=b.dataset.pw.split(":").map(Number); paStop(); sfx.tick();
     $("paMain").querySelectorAll(".papsk .wc.on").forEach(x=>x.classList.remove("on")); b.classList.add("on"); speakPhrase(spk(PSK[i][2].split(" ")[n])) });
-  $("paMain").querySelectorAll("[data-pall]").forEach(b=>b.onclick=()=>{ sfx.tick(); speakPhrase(spk(PSK[+b.dataset.pall][2])) });
-  $("paKW").querySelectorAll("[data-rw]").forEach(b=>b.onclick=()=>{ const [i,n]=b.dataset.rw.split(":").map(Number); sfx.tick();
+  $("paMain").querySelectorAll("[data-pall]").forEach(b=>b.onclick=()=>paFollow(b.closest(".papsk"),spk(PSK[+b.dataset.pall][2]),b,"▶ Follow the yad"));
+  $("paKW").querySelectorAll("[data-rw]").forEach(b=>b.onclick=()=>{ const [i,n]=b.dataset.rw.split(":").map(Number); paStop(); sfx.tick();
     $("paKW").querySelectorAll(".parashi .wc.on").forEach(x=>x.classList.remove("on")); b.classList.add("on"); speakPhrase(spk(RASHI[i][2].split(" ")[n])) });
-  $("paKW").querySelectorAll("[data-rall]").forEach(b=>b.onclick=()=>{ sfx.tick(); speakPhrase(spk(RASHI[+b.dataset.rall][2])) });
+  $("paKW").querySelectorAll("[data-rall]").forEach(b=>b.onclick=()=>paFollow(b.closest(".parashi"),spk(RASHI[+b.dataset.rall][2]),b,"▶ Follow the yad"));
   $("paKW").querySelectorAll("[data-kw]").forEach(b=>b.onclick=()=>{ const [i,n]=b.dataset.kw.split(":").map(Number); sfx.tick(); b.classList.remove("tapd"); void b.offsetWidth; b.classList.add("tapd"); speakPhrase(KW[i][n][0]) });
   paCoach(steps);
   // Bar Mitzvah parsha
@@ -549,6 +593,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
   text-shadow:0 1px 0 color-mix(in srgb,var(--klaf) 70%,transparent)}
 .pitem .pright .he:empty{display:none}
 @media (max-width:400px){.pitem .pright .he{font-size:1.35rem;padding:0 9px}}
+.parashi,.papsk{position:relative}
 .parashi{background:var(--klaf);border:2px solid var(--rule);border-top:5px solid var(--tech);border-radius:18px;padding:14px 12px;display:flex;flex-direction:column;gap:10px}
 .parashi .il{justify-content:center}
 .parashi .wc{border:1.5px solid transparent;background:none;cursor:pointer;font:inherit;color:inherit}
