@@ -1,6 +1,10 @@
-/* ================= PRACTICE MODE: say "Hashem" instead of Hashem's holy name while learning ================= */
+/* ================= PRAYERS USE ADONAI ================= */
+/* Practice mode (which swapped in "Hashem" inside the prayers) is turned off for good. The house rule:
+   English sentences say "Hashem"; the Hebrew prayers themselves are read and spoken with Adonai.
+   The code is kept, switched off, in case a teacher ever wants it back. */
 (function(){
-const on=()=>S.practice!==false;
+// House rule: prayers are said with Adonai, and English sentences say "Hashem". So the swap is always off.
+const on=()=>false;
 // Sound-outs (English letters)
 const RX=[[/A-do-n(?:oi|ai)/g,"Hashem"],[/A·do·n(?:oi|ai)/g,"Ha·shem"],[/E-lo-h/g,"E-lo-k"],[/E·lo·h/g,"E·lo·k"],[/e-lo-h/g,"e-lo-k"]];
 const fixSay=s=>typeof s==="string"?RX.reduce((t,[a,b])=>t.replace(a,b),s):s;
@@ -24,9 +28,6 @@ function swapAll(){
 const ss=window.speechSynthesis;
 if(ss){ const prev=ss.speak.bind(ss); ss.speak=function(u){ try{ if(on()&&u&&u.text) u.text=fixHe(u.text) }catch(e){} return prev(u) } }
 
-/* Settings switch */
-$("aDone").insertAdjacentHTML("beforebegin",`<div class="arow" data-noglo><span><b>🙏 Practice mode</b><small>While learning, shows and says <b>“Hashem”</b> instead of Hashem's holy name. Turn it off only when davening for real.</small></span><button class="sw" id="swPr" type="button" role="switch"></button></div>`);
-function paint(){ $("swPr").setAttribute("aria-checked",String(on())) }
-$("swPr").onclick=()=>{ S.practice=!on(); save(); paint(); swapAll(); toast(on()?"Practice mode on: we'll say “Hashem”":"Practice mode off") };
-paint(); swapAll();
+/* No settings switch any more: prayers always use Adonai */
+swapAll();
 })();

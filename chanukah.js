@@ -1,6 +1,6 @@
 /* ================= CHANUKAH: light the menorah night by night, the brachos, the story and how to celebrate ================= */
 (function(){
-const sef=()=>S.accent==="sef", prac=()=>S.practice!==false;
+const sef=()=>S.accent==="sef", prac=()=>false; // prayers are said with Adonai
 const tx=s=>{ if(!sef()) return s; try{ return typeof sefNames==="function"?sefNames(swapT(s)):swapT(s) }catch(e){ return s } };
 const nameFix=s=>prac()?s.replace(/A-do-n(oi|ai)/g,"Hashem").replace(/E-lo-h/g,"E-lo-k"):s;
 const sayOf=(he,say)=>{ let out=say; if(sef()){ try{ const t=typeof toSef==="function"&&toSef(he,say); out=(t&&t.split(" ").length===he.split(" ").length)?t:swapT(say) }catch(e){} } return nameFix(out).split(" ") };
