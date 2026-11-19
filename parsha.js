@@ -424,9 +424,12 @@ function paMoveYad(st,w){ const y=st.yad, r=w.getBoundingClientRect(), c=st.box.
   const x=r.left-c.left+r.width/2, top=r.top-c.top+6, T=(px,py)=>`translate(${px}px,${py}px)`;
   if(r.top<130||r.bottom>innerHeight-20) w.scrollIntoView({block:"center",behavior:"smooth"});
   const fresh=y.hidden||!st.at; y.hidden=false;
-  const from=fresh?{x:x+80,y:top-110}:st.at, hop=!fresh&&Math.abs(st.at.y-top)>20;
-  const mid={x:(from.x+x)/2,y:Math.min(from.y,top)-(fresh?20:hop?46:16)}, dur=fresh?560:hop?460:300;
-  try{ y.getAnimations().forEach(a=>a.cancel()) }catch(e){}
+  // Start from where the yad is on screen right now, even in the middle of a glide, so it never snaps back
+  let from=fresh?{x:x+80,y:top-110}:st.at, moving=false;
+  try{ const an=y.getAnimations(); if(!fresh&&an.length&&an.some(a=>a.playState==="running")){ const m=new DOMMatrixReadOnly(getComputedStyle(y).transform); from={x:m.m41,y:m.m42}; moving=true } an.forEach(a=>a.cancel()) }catch(e){}
+  if(Math.abs(from.x-x)<1&&Math.abs(from.y-top)<1&&!fresh){ y.style.transform=`translate(${x}px,${top}px)`; st.at={x,y:top}; return }
+  const hop=!fresh&&Math.abs(from.y-top)>20;
+  const mid={x:(from.x+x)/2,y:Math.min(from.y,top)-(fresh?20:hop?(moving?28:46):(moving?6:16))}, dur=fresh?560:hop?460:(moving?240:300);
   y.style.transform=T(x,top);
   if(y.animate) y.animate([{transform:T(from.x,from.y),opacity:fresh?0:1},{transform:T(mid.x,mid.y),opacity:1,offset:.55},{transform:T(x,top),opacity:1}],{duration:dur,easing:"cubic-bezier(.3,.7,.35,1)"});
   st.at={x,y:top};
@@ -450,10 +453,14 @@ function paFollow(box,he,btn,label){
   const finish=()=>{ if(done||st.stop) return; done=true; st.timers.forEach(clearTimeout);
     setTimeout(()=>{ if(PY===st) paStop() },650) };
   // Backup timing if the voice doesn't report word positions: about 4 syllables a second, plus a breath at commas
-  let t=120; ws.forEach((w,k)=>{ st.timers.push(setTimeout(()=>{ if(!heard) light(k) },t)); const s=w.querySelector(".s");
+  // It starts when the voice actually starts talking (phones often wait a moment), so the yad never runs ahead.
+  let t=0; const plan=[]; ws.forEach((w,k)=>{ plan.push([k,t]); const s=w.querySelector(".s");
     const syl=s&&s.textContent.trim()?s.textContent.trim().split(/[-·\s]+/).length:2; t+=(syl*235+70)/rate+(/,\s*$/.test(hw[k]||"")?220:0) });
+  let backup=false; const runBackup=()=>{ if(heard||backup||done||st.stop) return; backup=true; plan.forEach(([k,d])=>{ if(k>0) st.timers.push(setTimeout(()=>{ if(!heard) light(k) },d)) }) };
   try{ const u=new SpeechSynthesisUtterance(words.join(" ")); u.voice=HEV; u.lang=HEV.lang; u.rate=rate;
-    u.onboundary=e=>{ if(e.name&&e.name!=="word") return; heard=true; let k=0; while(k+1<starts.length&&starts[k+1]<=e.charIndex) k++; light(k) };
+    u.onstart=()=>{ st.timers.push(setTimeout(runBackup,450)) }; st.timers.push(setTimeout(runBackup,2500));
+    u.onboundary=e=>{ if(e.name&&e.name!=="word") return; let k=0; while(k+1<starts.length&&starts[k+1]<=e.charIndex) k++;
+      if(!heard){ heard=true; if(k<cur) cur=k-1 } light(k) };
     u.onend=()=>{ light(ws.length-1); finish() }; u.onerror=()=>finish();
     KEEP.push(u); speechSynthesis.cancel(); speechSynthesis.speak(u); light(0) }catch(e){ finish() }
   st.timers.push(setTimeout(finish,t*1.8+4000)) }
