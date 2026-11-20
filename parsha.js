@@ -641,5 +641,8 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 @media (max-width:380px){.kwc{grid-template-columns:1fr}.kwhe{flex-direction:row;justify-content:center;gap:10px}}
 </style>`);
 window.openParsha=openParsha;
+// For Chitas: the parsha (or two) learned this week = the coming Shabbos's reading (skipping a Yom Tov Shabbos)
+window.chitasParshios=d=>{ const i=shabbosFrom(d||new Date()); if(i<0) return null; const j=nextRegular(i); return j<0?null:PCAL[j].ps.slice() };
+window.parshaName=i=>pnm(i);
 paintPaHome(); if(location.hash==="#parsha") openParsha();
 })();

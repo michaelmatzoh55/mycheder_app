@@ -216,20 +216,60 @@ function renderChitas(){ const now=new Date(), h=hdate(now), tom=new Date(now); 
   const pa=$("paHomeT"), parsha=pa?pa.textContent.replace(/^This week: /,"").replace(/^This Shabbos: /,""):"this week's parsha";
   const t=chitToday(), st=chitStreak();
   const row=(k,e,name,he,what)=>`<div class="ctrow${t[k]?" ok":""}"><button class="ctchk" type="button" data-ct="${k}" aria-pressed="${!!t[k]}" aria-label="${name}${t[k]?", done":""}"><span class="box">${t[k]?"✓":""}</span></button>
-    <div><b>${e} ${name} <span lang="he">${he}</span></b><small>${what}</small><a class="ctlink" href="${LINK[k]}" target="_blank" rel="noopener noreferrer">Learn today's ${name} on Chabad.org ↗</a></div></div>`;
+    <div><b>${e} ${name} <span lang="he">${he}</span></b><small>${what}</small>${k==="y"?`<a class="ctlink" href="${LINK[k]}" target="_blank" rel="noopener noreferrer">Learn today's ${name} on Chabad.org ↗</a>`:`<button class="ctread" type="button" data-rd="${k}">📖 Read today's ${name} here</button>`}</div></div>`;
   $("ctMain").innerHTML=`<div class="buddy compact"><span class="ywrap">${yossi(t.c&&t.t&&t.y?"cheer":"")}</span><div class="bubble"><span class="name">Shlomo</span>The Frierdiker Rebbe asked every Jew to learn <b>Chitas</b> every day: a bit of <b>Ch</b>umash, <b>T</b>ehillim and Tany<b>a</b>. The Rebbe said it brings blessing and protection all day!</div></div>
    <div class="mzhud"><div><b>${["c","t","y"].filter(k=>t[k]).length} / 3</b><span>done today</span></div><div><b>🔥 ${st}</b><span>day${st===1?"":"s"} in a row</span></div><div><b>${S.chit.best||0}</b><span>best streak</span></div></div>
    <div class="ctlist">
-    ${row("c","📖","Chumash","חוּמָשׁ",`${esc(parsha)}: today is <b>${ALIYA[now.getDay()]}</b>, with Rashi.`)}
+    ${row("c","📖","Chumash","חוּמָשׁ",`${esc(chumName()||parsha)}: today is <b>${ALIYA[now.getDay()]}</b>.`)}
     ${row("t","🎵","Tehillim","תְּהִלִּים",h?`Day ${h.day} of ${monName(h.mon)}: chapters <b>${teh}</b>.`:"Today's chapters from the monthly cycle.")}
     ${row("y","💡","Tanya","תַּנְיָא","Today's portion of the Tanya, from the yearly cycle.")}
    </div>
    <div class="ctyom"><b>📜 Hayom Yom</b><p>The Rebbe's book with a <b>short teaching for every day</b> of the year: a custom, a story or a Chassidic thought.</p>
     <a class="btn gold" href="${LINK.h}" target="_blank" rel="noopener noreferrer">Read today's Hayom Yom ↗</a></div>
-   <p class="note">💡 A grown-up can help you open the links. On <b>Shabbos</b>, learn Chitas from a real Chumash, Tehillim and Tanya, and your streak stays safe!</p>`;
+   <p class="note">💡 Chumash and Tehillim are right here in the app. For Tanya and Hayom Yom, a grown-up can help you open the links. On <b>Shabbos</b>, learn Chitas from a real Chumash, Tehillim and Tanya, and your streak stays safe!</p>`;
+  $("ctMain").querySelectorAll("[data-rd]").forEach(b=>b.onclick=()=>{ sfx.pop(); openChitRead(b.dataset.rd,teh) });
   $("ctMain").querySelectorAll("[data-ct]").forEach(b=>b.onclick=()=>{ const k=b.dataset.ct, x=chitToday();
     if(x[k]){ delete x[k]; S.gelt=Math.max(0,(S.gelt||0)-1); sfx.tick() } else { x[k]=true; S.gelt=(S.gelt||0)+1; sfx.right(2); setTimeout(sfx.coin,150); if(x.c&&x.t&&x.y){ setTimeout(()=>{ party(true); toast("Chitas complete! 🎉") },250) } else toast("+1 gelt") }
     S.chit.best=Math.max(S.chit.best||0,chitStreak()); save(); paintChitHome(); const y=scrollY; renderChitas(); scrollTo(0,y) }) }
+/* ---------- The app's own Chumash and Tehillim (public-domain Hebrew text, Leningrad Codex via tanach.us) ---------- */
+const GEM=n=>{ if(n===15) return "ט״ו"; if(n===16) return "ט״ז"; const U=["","א","ב","ג","ד","ה","ו","ז","ח","ט"],T=["","י","כ","ל","מ","נ","ס","ע","פ","צ"],H=["","ק","ר","ש","ת"];
+  let s=H[Math.floor(n/100)]||(n>=500?"ת"+H[Math.floor(n/100)-4]:""), r=n%100; if(r===15) s+="טו"; else if(r===16) s+="טז"; else s+=T[Math.floor(r/10)]+U[r%10];
+  return s.length>1?s.slice(0,-1)+"״"+s.slice(-1):s+"׳" };
+const chumParsh=()=>{ const h=hdate(new Date()); if(h&&h.mon==="Tishri"&&h.day>=11&&h.day<=23) return [53]; return window.chitasParshios?window.chitasParshios(new Date()):null };
+function chumName(){ const ps=chumParsh(); return ps&&window.parshaName?ps.map(window.parshaName).join(" – "):"" }
+const TXC={}; const getTxt=f=>TXC[f]||(TXC[f]=fetch("texts/"+f+".json").then(r=>{ if(!r.ok) throw 0; return r.json() }).catch(e=>{ delete TXC[f]; throw e }));
+S.chitFs=S.chitFs||1.5;
+VIEWS.push("chitr");
+$("party").insertAdjacentHTML("beforebegin",`<div class="wrap" id="chitr" hidden>
+  <div class="toprow"><button class="back" id="crBk" type="button">← Chitas</button><span class="crsz"><button type="button" id="crMinus" aria-label="Smaller letters">א−</button><button type="button" id="crPlus" aria-label="Bigger letters">א+</button></span></div>
+  <div class="phead"><div class="he" lang="he" id="crHe"></div><h2 id="crT"></h2><p class="when" id="crW"></p></div>
+  <div id="crMain"></div>
+</div>`);
+let crK="t";
+function crPaint(){ $("crMain").style.setProperty("--crfs",S.chitFs+"rem") }
+async function openChitRead(k,teh){ crK=k; showOnly("chitr"); scrollTo(0,0); crPaint(); const now=new Date();
+  $("crMain").innerHTML=`<p class="note" style="text-align:center">Loading…</p>`;
+  try{
+    if(k==="t"){ $("crHe").textContent="תְּהִלִּים"; $("crT").textContent="Today's Tehillim"; $("crW").textContent="Chapters "+teh;
+      const T=await getTxt("tehillim"); const [a,b]=teh.split("–"); let out="";
+      if(/:/.test(teh)){ const [c,r]=teh.split(":"), [v1,v2]=r.split("–").map(Number); out+=crCh(+c,T[+c-1],v1,v2) }
+      else for(let c=+a;c<=+(b||a);c++) out+=crCh(c,T[c-1]);
+      $("crMain").innerHTML=crHead()+out+crDone() }
+    else { const ps=chumParsh(); if(!ps) throw 0; const day=now.getDay();
+      $("crHe").textContent="חוּמָשׁ"; $("crT").textContent="Today's Chumash"; $("crW").textContent=chumName()+" · "+ALIYA[day];
+      let out=""; for(const i of ps){ const P=await getTxt("chumash"+i), al=P.a[day];
+        if(ps.length>1) out+=`<h3 class="crsub">${esc(window.parshaName(i))}</h3>`;
+        out+=`<div class="crtx" lang="he" dir="rtl">${al.map((x,j)=>(j===0||x[1]===1?`<span class="crcn">פֶּרֶק ${GEM(x[0])}</span> `:"")+`<sup>${GEM(x[1])}</sup>${esc(x[2])} `).join("")}</div>` }
+      $("crMain").innerHTML=crHead()+(ps.length>1?`<p class="note">This week two parshiyos are read together, so today you learn the ${ALIYA[day].split(" ")[0]} of each one.</p>`:"")+out+crDone() }
+  }catch(e){ $("crMain").innerHTML=`<p class="note">Couldn't load the text. Check your internet and try again.</p>` }
+  const d=$("crDone"); if(d) d.onclick=()=>{ const x=chitToday(); if(!x[crK]){ const btn=document.querySelector(`#ctMain [data-ct="${crK}"]`); if(btn) btn.click(); else { x[crK]=true; S.gelt=(S.gelt||0)+1; save() } } sfx.pop(); openChitas() } }
+const crHead=()=>`<div class="buddy compact"><span class="ywrap">${yossi("")}</span><div class="bubble"><span class="name">Shlomo</span>${crK==="t"?"Say each pasuk slowly. King Dovid wrote these songs, and Jews everywhere are saying the same chapters today!":"This is today's part of the parsha. Read a pasuk, then read it again. Ask a grown-up about anything new!"}</div></div>`;
+const crDone=()=>`<button class="btn gold" id="crDone" type="button" style="margin:16px auto 6px;display:block">${chitToday()[crK]?"✓ Done! Back to Chitas":"✓ I finished! (+1 gelt)"}</button>`;
+function crCh(c,vs,v1,v2){ v1=v1||1; v2=v2||vs.length; let s=`<div class="crtx" lang="he" dir="rtl"><span class="crcn">פֶּרֶק ${GEM(c)}</span> `;
+  for(let v=v1;v<=v2;v++) s+=`<sup>${GEM(v)}</sup>${esc(vs[v-1])} `; return s+`</div>` }
+$("crBk").onclick=()=>{ sfx.tick(); openChitas() };
+$("crPlus").onclick=()=>{ S.chitFs=Math.min(2.4,+(S.chitFs+.15).toFixed(2)); save(); crPaint() };
+$("crMinus").onclick=()=>{ S.chitFs=Math.max(1.05,+(S.chitFs-.15).toFixed(2)); save(); crPaint() };
 /* Chitas has its own screen and its own Home card, right after Daily Mitzvos */
 VIEWS.push("chit");
 $("party").insertAdjacentHTML("beforebegin",`<div class="wrap" id="chit" hidden>
@@ -239,7 +279,7 @@ $("party").insertAdjacentHTML("beforebegin",`<div class="wrap" id="chit" hidden>
 </div>`);
 function openChitas(){ stopPlay(); window._fromBM=false; showOnly("chit"); const h=hdate(new Date()); $("ctWhen").textContent=h?`Today is ${h.day} ${monName(h.mon)} ${h.yr}`:"Chumash, Tehillim and Tanya, every day"; renderChitas(); document.querySelectorAll("[data-nav]").forEach(b=>b.removeAttribute("aria-current")) }
 $("ctBk").onclick=()=>{ sfx.tick(); $("chit").hidden=true; goHome() };
-document.addEventListener("click",e=>{ if(e.target.closest("[data-nav],#openAbc,#openWords,#openBlitz,#openBM,#openPa,#openHol,#openSages,#openFacts,#openChal,#openMitz,#openChs,#openShop,#openChan,.pitem")&&!e.target.closest("#chit")) $("chit").hidden=true },true);
+document.addEventListener("click",e=>{ if(e.target.closest("[data-nav],#openAbc,#openWords,#openBlitz,#openBM,#openPa,#openHol,#openSages,#openFacts,#openChal,#openMitz,#openChs,#openShop,#openChan,.pitem")&&!e.target.closest("#chit")) $("chit").hidden=true; if(e.target.closest("[data-nav],.pitem")&&!e.target.closest("#chitr")) $("chitr").hidden=true },true);
 ($("openMitz")||$("openFacts")||$("openPa")).insertAdjacentHTML("afterend",`<button class="blitzcard" id="openChit" type="button"><span class="em" aria-hidden="true">📚</span>
   <span><b>Chitas</b><span>A little Chumash, Tehillim and Tanya every day.</span></span><span class="bzs" id="ctHomeR"></span></button>`);
 $("openChit").onclick=()=>{ sfx.pop(); openChitas() };
@@ -309,6 +349,15 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .ctrow b{display:block;font-family:var(--display);font-weight:400;font-size:1.2rem;color:var(--tech)}
 .ctrow b span[lang=he]{font-family:var(--he);font-weight:700;color:var(--gold);font-size:1.05rem}
 .ctrow small{display:block;font-size:.92rem;color:var(--ink);line-height:1.35}.ctrow small b{display:inline;font-family:inherit;font-size:inherit}
+.ctread{display:inline-block;margin-top:6px;padding:7px 12px;border-radius:999px;border:2px solid var(--tech);background:var(--tech);color:var(--klaf);font:inherit;font-size:.92rem;font-weight:700;cursor:pointer}
+.ctrow.ok .ctread{background:transparent;color:var(--tech)}
+#chitr .toprow{display:flex;justify-content:space-between;align-items:center}
+.crsz{display:flex;gap:6px}.crsz button{font-family:var(--he);font-weight:700;font-size:1.05rem;min-width:46px;height:40px;border-radius:12px;border:2px solid var(--rule);background:var(--klaf);color:var(--tech);cursor:pointer}
+.crtx{font-family:var(--he);font-size:var(--crfs,1.5rem);line-height:2.05;color:var(--ink);background:var(--klaf);border:2px solid var(--rule);border-radius:16px;padding:14px 16px;margin:12px 0;text-align:right}
+.crtx sup{font-size:.55em;color:var(--gold);font-weight:700;margin-inline:.15em .25em;vertical-align:.55em}
+.crcn{display:block;text-align:center;font-weight:700;color:var(--tech);font-size:.8em;margin:.2em 0 .1em}
+.crtx .crcn:not(:first-child){margin-top:.7em;padding-top:.5em;border-top:1px dashed var(--rule)}
+.crsub{font-family:var(--display);font-weight:400;color:var(--tech);margin:16px 0 0;text-align:center}
 .ctlink{display:inline-block;margin-top:4px;font-size:.85rem;font-weight:700;color:var(--tech)}
 .ctyom{background:linear-gradient(160deg,#142c72,#2b53b4);color:#f4f0e2;border:2px solid var(--gold-hi);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 .ctyom>b{font-family:var(--display);font-weight:400;font-size:1.3rem;color:#f4c95f}.ctyom p{margin:0;font-family:var(--text);font-size:1.04rem}.ctyom p b{color:#fff}
