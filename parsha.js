@@ -523,7 +523,9 @@ function renderParsha(){ paStop();
         return `<div class="parashi"><div class="papskh" data-noglo><b>📜 Rashi says</b><span>Rashi on ${esc(BOOKS[x[0]][sef?1:0])} ${x[1]}</span></div>
         <div class="il" dir="rtl">${he.map((w,n)=>`<button class="wc" type="button" data-rw="${i}:${n}"><span class="h" lang="he">${w}</span><span class="s">${esc(so[n]||"")}</span><span class="g">${esc(kwT(gl[n]))}</span></button>`).join("")}</div>
         <button class="btn ghost" type="button" data-rall="${i}">▶ Follow the yad</button>
-        <div class="rashiwhy"><b>What Rashi is teaching</b><p>${kwT(x[5])}</p></div></div>` })():""}</section>`).join("")}`;
+        <div class="rashiwhy"><b>What Rashi is teaching</b><p>${kwT(x[5])}</p></div></div>` })():""}
+      <button class="btn gold parall" type="button" data-prr="${i}">📜 Read all of ${esc(pnm(i))} with Rashi</button></section>`).join("")}`;
+  $("paKW").querySelectorAll("[data-prr]").forEach(b=>b.onclick=()=>{ paStop(); sfx.pop(); if(window.openChumashRashi) window.openChumashRashi(+b.dataset.prr) });
   $("paHear").onclick=()=>speakPhrase(ps.map(i=>PARSHIOS[i][2]).join(" "));
   $("paMain").querySelectorAll("[data-pw]").forEach(b=>b.onclick=()=>{ const [i,n]=b.dataset.pw.split(":").map(Number); paStop(); sfx.tick();
     $("paMain").querySelectorAll(".papsk .wc.on").forEach(x=>x.classList.remove("on")); b.classList.add("on"); speakPhrase(spk(PSK[i][2].split(" ")[n])) });
@@ -644,5 +646,7 @@ window.openParsha=openParsha;
 // For Chitas: the parsha (or two) learned this week = the coming Shabbos's reading (skipping a Yom Tov Shabbos)
 window.chitasParshios=d=>{ const i=shabbosFrom(d||new Date()); if(i<0) return null; const j=nextRegular(i); return j<0?null:PCAL[j].ps.slice() };
 window.parshaName=i=>pnm(i);
+window.parshaHe=i=>PARSHIOS[i][2];
+window.paRestore=()=>{ showOnly("parsha"); renderParsha(); paintNav(); scrollTo(0,0) };
 paintPaHome(); if(location.hash==="#parsha") openParsha();
 })();

@@ -247,27 +247,44 @@ $("party").insertAdjacentHTML("beforebegin",`<div class="wrap" id="chitr" hidden
 </div>`);
 let crK="t";
 function crPaint(){ $("crMain").style.setProperty("--crfs",S.chitFs+"rem") }
-async function openChitRead(k,teh){ crK=k; showOnly("chitr"); scrollTo(0,0); crPaint(); const now=new Date();
+async function openChitRead(k,teh){ $("crBk").textContent=k==="p"?"← Parsha":"← Chitas"; crK=k; if(teh) crTeh=teh; showOnly("chitr"); scrollTo(0,0); crPaint(); const now=new Date();
   $("crMain").innerHTML=`<p class="note" style="text-align:center">Loading…</p>`;
   try{
-    if(k==="t"){ $("crHe").textContent="תְּהִלִּים"; $("crT").textContent="Today's Tehillim"; $("crW").textContent="Chapters "+teh;
+    if(k==="t"){ teh=crTeh; $("crHe").textContent="תְּהִלִּים"; $("crT").textContent="Today's Tehillim"; $("crW").textContent="Chapters "+teh;
       const T=await getTxt("tehillim"); const [a,b]=teh.split("–"); let out="";
       if(/:/.test(teh)){ const [c,r]=teh.split(":"), [v1,v2]=r.split("–").map(Number); out+=crCh(+c,T[+c-1],v1,v2) }
       else for(let c=+a;c<=+(b||a);c++) out+=crCh(c,T[c-1]);
       $("crMain").innerHTML=crHead()+out+crDone() }
+    else if(k==="p"){ const i=crP; $("crHe").textContent=PHE(i); $("crT").textContent=window.parshaName(i)+" with Rashi"; $("crW").textContent="The whole parsha, aliyah by aliyah";
+      $("crMain").innerHTML=crHead()+crRashiBar()+await crChum(i,[0,1,2,3,4,5,6],true) }
     else { const ps=chumParsh(); if(!ps) throw 0; const day=now.getDay();
       $("crHe").textContent="חוּמָשׁ"; $("crT").textContent="Today's Chumash"; $("crW").textContent=chumName()+" · "+ALIYA[day];
-      let out=""; for(const i of ps){ const P=await getTxt("chumash"+i), al=P.a[day];
-        if(ps.length>1) out+=`<h3 class="crsub">${esc(window.parshaName(i))}</h3>`;
-        out+=`<div class="crtx" lang="he" dir="rtl">${al.map((x,j)=>(j===0||x[1]===1?`<span class="crcn">פֶּרֶק ${GEM(x[0])}</span> `:"")+`<sup>${GEM(x[1])}</sup>${esc(x[2])} `).join("")}</div>` }
-      $("crMain").innerHTML=crHead()+(ps.length>1?`<p class="note">This week two parshiyos are read together, so today you learn the ${ALIYA[day].split(" ")[0]} of each one.</p>`:"")+out+crDone() }
+      let out=""; for(const i of ps){ if(ps.length>1) out+=`<h3 class="crsub">${esc(window.parshaName(i))}</h3>`; out+=await crChum(i,[day],false) }
+      $("crMain").innerHTML=crHead()+(ps.length>1?`<p class="note">This week two parshiyos are read together, so today you learn the ${ALIYA[day].split(" ")[0]} of each one.</p>`:"")+crRashiBar()+out+crDone() }
   }catch(e){ $("crMain").innerHTML=`<p class="note">Couldn't load the text. Check your internet and try again.</p>` }
+  crWire();
   const d=$("crDone"); if(d) d.onclick=()=>{ const x=chitToday(); if(!x[crK]){ const btn=document.querySelector(`#ctMain [data-ct="${crK}"]`); if(btn) btn.click(); else { x[crK]=true; S.gelt=(S.gelt||0)+1; save() } } sfx.pop(); openChitas() } }
-const crHead=()=>`<div class="buddy compact"><span class="ywrap">${yossi("")}</span><div class="bubble"><span class="name">Shlomo</span>${crK==="t"?"Say each pasuk slowly. King Dovid wrote these songs, and Jews everywhere are saying the same chapters today!":"This is today's part of the parsha. Read a pasuk, then read it again. Ask a grown-up about anything new!"}</div></div>`;
+/* Rashi under every pasuk (public-domain Rosenbaum & Silbermann edition, Hebrew with nikud + English) */
+let crP=0; S.chitRashi=S.chitRashi!==false;
+const PHE=i=>window.parshaHe?window.parshaHe(i):"חוּמָשׁ";
+const crRashiBar=()=>`<div class="crbar"><button type="button" id="crRs" class="crtog${S.chitRashi?" on":""}" aria-pressed="${S.chitRashi}">📜 Rashi: ${S.chitRashi?"ON":"OFF"}</button><span>${S.chitRashi?"Rashi's words are under each pasuk. Tap <b>English</b> to understand them.":"Turn on Rashi to learn what he explains on each pasuk."}</span></div>`;
+async function crChum(i,days,heads){ const P=await getTxt("chumash"+i), R=S.chitRashi?await getTxt("rashi"+i).catch(()=>null):null; let out="";
+  for(const day of days){ const al=P.a[day], ra=R&&R.a[day];
+    if(heads) out+=`<h3 class="crsub">${ALIYA[day]}</h3>`;
+    if(!R){ out+=`<div class="crtx" lang="he" dir="rtl">${al.map((x,j)=>(j===0||x[1]===1?`<span class="crcn">פֶּרֶק ${GEM(x[0])}</span> `:"")+`<sup>${GEM(x[1])}</sup>${esc(x[2])} `).join("")}</div>`; continue }
+    out+=`<div class="crtx crps" lang="he" dir="rtl">${al.map((x,j)=>{ const r=ra[j];
+      return (j===0||x[1]===1?`<span class="crcn">פֶּרֶק ${GEM(x[0])}</span>`:"")+`<p class="crv"><sup>${GEM(x[1])}</sup>${esc(x[2])}</p>`+
+       (r&&r[0].length?`<div class="crr"><span class="crrl">רש״י</span>${r[0].map(t=>`<p>${t}</p>`).join("")}${r[1].length?`<button type="button" class="crEn" data-en>English</button><div class="cren" lang="en" dir="ltr" hidden>${r[1].map(t=>`<p>${t}</p>`).join("")}</div>`:""}</div>`:"") }).join("")}</div>` }
+  return out }
+function crWire(){ const t=$("crRs"); if(t) t.onclick=()=>{ S.chitRashi=!S.chitRashi; save(); sfx.tick(); const y=scrollY; openChitRead(crK,crTeh).then(()=>scrollTo(0,y)) };
+  $("crMain").querySelectorAll("[data-en]").forEach(b=>b.onclick=()=>{ const e=b.nextElementSibling; e.hidden=!e.hidden; b.textContent=e.hidden?"English":"Hide English"; sfx.tick() }) }
+let crTeh="";
+window.openChumashRashi=i=>{ crP=i; openChitRead("p") };
+const crHead=()=>`<div class="buddy compact"><span class="ywrap">${yossi("")}</span><div class="bubble"><span class="name">Shlomo</span>${crK==="p"?"Here is the whole parsha with Rashi. Rashi explains the Torah like a great teacher, word by word. Take one aliyah at a time!":crK==="t"?"Say each pasuk slowly. King Dovid wrote these songs, and Jews everywhere are saying the same chapters today!":"This is today's part of the parsha. Read a pasuk, then read it again. Ask a grown-up about anything new!"}</div></div>`;
 const crDone=()=>`<button class="btn gold" id="crDone" type="button" style="margin:16px auto 6px;display:block">${chitToday()[crK]?"✓ Done! Back to Chitas":"✓ I finished! (+1 gelt)"}</button>`;
 function crCh(c,vs,v1,v2){ v1=v1||1; v2=v2||vs.length; let s=`<div class="crtx" lang="he" dir="rtl"><span class="crcn">פֶּרֶק ${GEM(c)}</span> `;
   for(let v=v1;v<=v2;v++) s+=`<sup>${GEM(v)}</sup>${esc(vs[v-1])} `; return s+`</div>` }
-$("crBk").onclick=()=>{ sfx.tick(); openChitas() };
+$("crBk").onclick=()=>{ sfx.tick(); if(crK==="p"&&window.paRestore){ $("chitr").hidden=true; window.paRestore() } else openChitas() };
 $("crPlus").onclick=()=>{ S.chitFs=Math.min(2.4,+(S.chitFs+.15).toFixed(2)); save(); crPaint() };
 $("crMinus").onclick=()=>{ S.chitFs=Math.max(1.05,+(S.chitFs-.15).toFixed(2)); save(); crPaint() };
 /* Chitas has its own screen and its own Home card, right after Daily Mitzvos */
@@ -357,6 +374,14 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .crtx sup{font-size:.55em;color:var(--gold);font-weight:700;margin-inline:.15em .25em;vertical-align:.55em}
 .crcn{display:block;text-align:center;font-weight:700;color:var(--tech);font-size:.8em;margin:.2em 0 .1em}
 .crtx .crcn:not(:first-child){margin-top:.7em;padding-top:.5em;border-top:1px dashed var(--rule)}
+.crbar{display:flex;gap:10px;align-items:center;background:var(--klaf);border:2px solid var(--rule);border-radius:14px;padding:8px 10px;margin-top:10px;font-size:.92rem}
+.crtog{flex:none;font:inherit;font-weight:700;padding:8px 12px;border-radius:999px;border:2px solid var(--tech);background:var(--klaf);color:var(--tech);cursor:pointer}.crtog.on{background:var(--tech);color:var(--klaf)}
+.crps{text-align:right}.crv{margin:.35em 0 .2em}
+.crr{font-size:.74em;line-height:1.85;background:color-mix(in srgb,var(--gold) 9%,var(--klaf));border-inline-start:4px solid var(--gold);border-radius:10px;padding:.35em .7em .5em;margin:.1em 0 .8em;color:var(--ink)}
+.crr p{margin:.25em 0}.crr b{color:var(--tech)}.crr small{font-size:.8em;color:var(--muted)}
+.crrl{display:inline-block;font-weight:700;color:var(--gold);font-size:.85em;margin-bottom:.1em}
+.crEn{font-family:var(--say);font-size:.8rem;font-weight:700;border:2px solid var(--rule);background:var(--klaf);color:var(--tech);border-radius:999px;padding:3px 12px;margin:.2em 0;cursor:pointer}
+.cren{font-family:var(--text);font-size:.95rem;line-height:1.5;text-align:left;border-top:1px dashed var(--rule);margin-top:.4em;padding-top:.3em}
 .crsub{font-family:var(--display);font-weight:400;color:var(--tech);margin:16px 0 0;text-align:center}
 .ctlink{display:inline-block;margin-top:4px;font-size:.85rem;font-weight:700;color:var(--tech)}
 .ctyom{background:linear-gradient(160deg,#142c72,#2b53b4);color:#f4f0e2;border:2px solid var(--gold-hi);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
